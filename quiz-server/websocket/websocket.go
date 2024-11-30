@@ -52,7 +52,7 @@ func ListenAndHandleEvent(manager *managers.QuizSession, server *socketio.Server
 	router.Handle("/", fs)
 
 	httpServer := &http.Server{
-		Addr:    "127.0.0.1:" + portStr,
+		Addr:    "0.0.0.0:" + portStr,
 		Handler: router,
 
 		// It is always a good practice to set timeouts.
@@ -71,31 +71,34 @@ func ListenAndHandleEvent(manager *managers.QuizSession, server *socketio.Server
 	}
 }
 
+var JoinQuizError = errors.New("JoinQuizError")
+
 func (h *webSocketHandler) onJoinQuiz(s socketio.ServerSocket) func(userIdStr, quizIdStr string) {
 	return func(userIdStr, quizIdStr string) {
 		if userIdStr == "" {
-			fmt.Println("user id is empty")
+			s.Emit(string(configs.Error), fmt.Sprintf("%s: user id is empty", JoinQuizError))
 			return
 		}
 		userId, err := strconv.Atoi(userIdStr)
 		if err != nil {
-			fmt.Println("invalid user id")
+			s.Emit(string(configs.Error), fmt.Sprintf("%s: invalid user id", JoinQuizError))
 			return
 		}
 
 		if quizIdStr == "" {
-			fmt.Println("quiz id is empty")
+			s.Emit(string(configs.Error), fmt.Sprintf("%s: quiz id is empty", JoinQuizError))
 			return
 		}
 		quizId, err := strconv.Atoi(quizIdStr)
 		if err != nil {
-			fmt.Println("invalid quiz id")
+			s.Emit(string(configs.Error), fmt.Sprintf("%s: invalid quiz id", JoinQuizError))
 			return
 		}
 
 		quiz, err := h.quizSessionManager.JoinQuiz(context.Background(), models.QuizId(quizId), models.UserId(userId), s)
 		if err != nil {
-			fmt.Println("join quiz err:", err)
+			s.Emit(string(configs.Error), fmt.Sprintf("%s: %s", JoinQuizError, err))
+			fmt.Println(fmt.Sprintf("join quiz err: %s", err))
 			return
 		}
 		s.Emit(string(configs.QuizData), quiz)
@@ -111,13 +114,15 @@ func (h *webSocketHandler) onQuestionAnswered(s socketio.ServerSocket) func(msg 
 		answer := &models.QuestionAnsweredPayload{}
 		err := json.Unmarshal([]byte(msg), answer)
 		if err != nil {
-			fmt.Println("error:", err)
+			s.Emit(string(configs.Error), "invalid data")
 			return
 		}
 
 		res, err := h.quizSessionManager.AnswerQuestion(s, answer.QuizId, answer.QuestionIndex, answer.AnswerIndex)
 		if err != nil {
+			s.Emit(string(configs.Error), err.Error())
 			fmt.Println("handle question answered websocket event error:", err)
+			return
 		}
 		s.Emit(string(configs.AnswerChecked), res.CorrectAnswerIndex, res.NewScore)
 		return

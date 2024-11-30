@@ -1,0 +1,187 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: haproxy-config
+  namespace: default
+data:
+  haproxy.cfg: |
+    # Paste your haproxy.cfg content here
+      global
+        # log stdout format raw
+  
+      defaults
+        log     global
+        mode    tcp
+        option  tcplog
+        timeout connect 5000ms
+        timeout client  50000ms
+        timeout server  50000ms
+      
+      frontend fe_websockets
+        bind *:8080
+        default_backend be_websockets
+      
+      backend be_websockets
+        balance roundrobin
+        option tcp-check
+        stick-table type ip size 200k expire 30m
+        stick on src
+        server app1 app1:8080 check
+        server app2 app2:8080 check
+      
+      frontend fe_http
+        bind *:1918
+        mode http  # Match the mode of the frontend
+        default_backend be_http
+      
+      backend be_http
+        mode http  # Match the mode of the frontend
+        balance roundrobin  # No sticky session, balanced by round-robin
+        server app1 app1:1918 check
+        server app2 app2:1918 check
+
+
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app1
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: app1
+  template:
+    metadata:
+      labels:
+        app: app1
+    spec:
+      containers:
+        - name: app1
+          image: quiz-server:latest
+          ports:
+            - containerPort: 8080
+          env:
+            - name: PORT
+              value: "8080"
+            - name: KAFKA_BROKERS
+              value: "host.docker.internal:9092"
+            - name: TEMPORAL_ADDRESS
+              value: "host.docker.internal:7233"
+            - name: REDIS_ADDRESS
+              value: "host.docker.internal:6379"
+
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app2
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: app2
+  template:
+    metadata:
+      labels:
+        app: app2
+    spec:
+      containers:
+        - name: app2
+          image: quiz-server:latest
+          ports:
+            - containerPort: 8080
+          env:
+            - name: PORT
+              value: "8080"
+            - name: KAFKA_BROKERS
+              value: "host.docker.internal:9092"
+            - name: TEMPORAL_ADDRESS
+              value: "host.docker.internal:7233"
+            - name: REDIS_ADDRESS
+              value: "host.docker.internal:6379"
+
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: haproxy
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: haproxy
+  template:
+    metadata:
+      labels:
+        app: haproxy
+    spec:
+      containers:
+        - name: haproxy
+          image: haproxy:latest
+          ports:
+            - containerPort: 8080
+            - containerPort: 1918
+          volumeMounts:
+            - name: haproxy-config
+              mountPath: /usr/local/etc/haproxy/haproxy.cfg
+              subPath: haproxy.cfg
+      volumes:
+        - name: haproxy-config
+          configMap:
+            name: haproxy-config
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: app1
+  namespace: default
+spec:
+  selector:
+    app: app1
+  ports:
+    - protocol: TCP
+      port: 8080
+      targetPort: 8080
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: app2
+  namespace: default
+spec:
+  selector:
+    app: app2
+  ports:
+    - protocol: TCP
+      port: 8080
+      targetPort: 8080
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: haproxy
+  namespace: default
+spec:
+  selector:
+    app: haproxy
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 8080
+    - name: http-alt
+      port: 1918
+      targetPort: 1918
+  type: LoadBalancer

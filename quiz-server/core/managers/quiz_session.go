@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"sync"
-	"time"
 
 	socketio "github.com/karagenc/socket.io-go"
 	"quiz/configs"
@@ -28,35 +27,58 @@ func NewQuizSessionManager() *QuizSession {
 	}
 }
 
-func (m *QuizSession) StartQuiz(ctx context.Context, quizId models.QuizId) error {
-	quiz := data.QuizData[quizId]
-	if quiz == nil {
-		return errors.New("quiz not found")
-	}
+var quizNotFoundError = errors.New("quiz not found")
 
+var QuizInProgressError = errors.New("quiz in progress")
+
+func StartQuiz(ctx context.Context, quizId models.QuizId) error {
 	if err := datastore.MarkQuizAsInProgress(ctx, quizId); err != nil {
 		if errors.Is(err, datastore.ErrQuizInProgress) {
-			return errors.New("start quiz: quiz already in progress")
+			return QuizInProgressError
 		}
 		return err
 	}
-
-	ongoingQuiz := &models.OngoingQuiz{
-		Id:                   quizId,
-		Participants:         map[models.UserId]*models.UserSession{},
-		CurrentQuestionIndex: -1, // for pending period
+	quizProgressed := &models.QuizProgressedEvent{
+		QuizId:    quizId,
+		EventType: models.QuizStarted,
 	}
-	// handle race condition
-	mutex.Lock()
-	m.quizzesInProgress[quizId] = ongoingQuiz
-	mutex.Unlock()
+	return event_publisher.Publish(configs.QuizProgressedTopic, quizId.String(), quizProgressed)
+}
 
-	m.startCoordinatorLoop(ongoingQuiz, quiz)
-
+func StartNewQuestion(ctx context.Context, quizId models.QuizId, questionIndex int) error {
+	fmt.Println("start new question", quizId, questionIndex)
+	topUsers, err := datastore.GetLeaderboard(ctx, quizId, configs.LeaderboardSize)
+	if err != nil {
+		return err
+	}
 	quizProgressed := &models.QuizProgressedEvent{
 		QuizId:        quizId,
-		QuestionIndex: -1,
+		QuestionIndex: questionIndex,
+		Leaderboard:   topUsers,
 		EventType:     models.QuestionStarted,
+	}
+	if err = event_publisher.Publish(configs.QuizProgressedTopic, quizId.String(), quizProgressed); err != nil {
+		return err
+	}
+	return nil
+}
+
+func EndQuiz(ctx context.Context, quizId models.QuizId) error {
+	fmt.Println("end quiz", quizId)
+	if err := datastore.MarkQuizAsFinished(ctx, quizId); err != nil {
+		return err
+	}
+	topUsers, err := datastore.GetLeaderboard(ctx, quizId, configs.LeaderboardSize)
+	if err != nil {
+		return err
+	}
+	if err = datastore.CleanUpUserScores(ctx, quizId); err != nil {
+		return err
+	}
+	quizProgressed := &models.QuizProgressedEvent{
+		QuizId:      quizId,
+		EventType:   models.QuizEnded,
+		Leaderboard: topUsers,
 	}
 	return event_publisher.Publish(configs.QuizProgressedTopic, quizId.String(), quizProgressed)
 }
@@ -64,12 +86,17 @@ func (m *QuizSession) StartQuiz(ctx context.Context, quizId models.QuizId) error
 func (m *QuizSession) JoinQuiz(ctx context.Context, quizId models.QuizId, userId models.UserId, socket socketio.ServerSocket) (*models.Quiz, error) {
 	quiz := data.QuizData[quizId]
 	if quiz == nil {
-		return nil, errors.New("quiz not found")
+		return nil, quizNotFoundError
 	}
 
-	err := datastore.MarkQuizAsInProgress(ctx, quizId)
+	err := datastore.CheckQuizInProgress(ctx, quizId)
 	if !errors.Is(err, datastore.ErrQuizInProgress) {
+		fmt.Println("check quiz in progress error", err)
 		return nil, errors.New("quiz haven't been started")
+	}
+
+	if err = datastore.MarkUserAsInQuiz(ctx, quizId, userId); err != nil {
+		return nil, err
 	}
 
 	mutex.Lock()
@@ -111,7 +138,7 @@ func (m *QuizSession) AnswerQuestion(
 
 	quiz := m.quizzesInProgress[quizId]
 	if quiz == nil {
-		return nil, fmt.Errorf("quiz not found")
+		return nil, quizNotFoundError
 	}
 	if quiz.CurrentQuestionIndex != questionIndex {
 		return nil, fmt.Errorf("question is not in progress: %d, %d", quiz.CurrentQuestionIndex, questionIndex)
@@ -140,6 +167,7 @@ func (m *QuizSession) AnswerQuestion(
 		leaderboard, err = datastore.GetLeaderboard(ctx, quizId, configs.LeaderboardSize)
 		event := &models.ScoreUpdatedEvent{
 			QuizId:      quizId,
+			UserId:      userId,
 			Leaderboard: leaderboard,
 		}
 		if err = event_publisher.Publish(configs.ScoreUpdatedTopic, quizId.String(), event); err != nil {
@@ -153,110 +181,73 @@ func (m *QuizSession) AnswerQuestion(
 	}, nil
 }
 
-func (m *QuizSession) OnQuizProgressed(event *models.QuizProgressedEvent) error {
-	switch event.EventType {
-	case models.QuizEnded:
-		ongoingQuiz := m.quizzesInProgress[event.QuizId]
-		if ongoingQuiz == nil {
-			fmt.Println("quiz haven't been started")
-			return nil
-		}
-		mutex.Lock()
-		delete(m.quizzesInProgress, event.QuizId)
-		mutex.Unlock()
-		socket.NotifyQuizEnded(event.QuizId, event.Leaderboard)
-		return nil
-	case models.QuestionStarted:
-		ongoingQuiz := m.quizzesInProgress[event.QuizId]
-		if ongoingQuiz == nil {
-			fmt.Println("quiz haven't been started")
-			return nil
-		}
-		ongoingQuiz.CurrentQuestionIndex = event.QuestionIndex
-		if ongoingQuiz.CurrentQuestionIndex >= 0 { // ignore pending case where there is no ongoing question
-			socket.NotifyQuestionEnded(ongoingQuiz.Id, ongoingQuiz.CurrentQuestionIndex, event.Leaderboard)
-		}
-		return nil
-	default:
-		fmt.Println("unknown quiz event")
-		return nil
-	}
-}
-
 func (m *QuizSession) OnScoreUpdated(event *models.ScoreUpdatedEvent) error {
 	ongoingQuiz := m.quizzesInProgress[event.QuizId]
 	if ongoingQuiz == nil {
 		fmt.Println("quiz haven't been started")
 		return nil
 	}
-	socket.NotifyScoreUpdated(event.QuizId, event.Leaderboard)
+	socket.NotifyScoreUpdated(event.QuizId, event.UserId, event.Leaderboard)
 	return nil
 }
 
-func (m *QuizSession) startCoordinatorLoop(ongoingQuiz *models.OngoingQuiz, quiz *models.Quiz) {
-	const maxRetries = 5
-	ticker := time.NewTicker(configs.DefaultQuestionTime)
-	pendingPeriodPassed := false
-	go func() {
-		for range ticker.C {
-			fmt.Println("quiz loop")
-			if !pendingPeriodPassed {
-				pendingPeriodPassed = true
-				continue
-			}
-			for range maxRetries {
-				if ongoingQuiz.CurrentQuestionIndex == len(quiz.Questions)-1 {
-					if err := m.endQuiz(quiz); err == nil {
-						ticker.Stop()
-						break
-					} else {
-						fmt.Println("finish quiz error:", err)
-					}
-				} else {
-					if err := m.startNewQuestion(ongoingQuiz); err == nil {
-						break
-					} else {
-						fmt.Println("start new question error:", err)
-					}
-				}
-			}
+func (m *QuizSession) OnQuizProgressed(event *models.QuizProgressedEvent) error {
+	switch event.EventType {
+	case models.QuizStarted:
+		return m.onQuizStarted(event)
+	case models.QuestionStarted:
+		return m.onQuestionStarted(event)
+	case models.QuizEnded:
+		return m.onQuizEnded(event)
+	default:
+		fmt.Println("unknown quiz event")
+		return nil
+	}
+}
+
+func (m *QuizSession) onQuizStarted(event *models.QuizProgressedEvent) error {
+	ongoingQuiz := m.quizzesInProgress[event.QuizId]
+	if ongoingQuiz != nil {
+		fmt.Println("quiz has already been started")
+		return nil
+	}
+	ongoingQuiz = &models.OngoingQuiz{
+		Id:                   event.QuizId,
+		Participants:         map[models.UserId]*models.UserSession{},
+		CurrentQuestionIndex: -1, // for pending period
+	}
+	// handle race condition
+	mutex.Lock()
+	m.quizzesInProgress[event.QuizId] = ongoingQuiz
+	mutex.Unlock()
+	return nil
+}
+
+func (m *QuizSession) onQuestionStarted(event *models.QuizProgressedEvent) error {
+	ongoingQuiz := m.quizzesInProgress[event.QuizId]
+	if ongoingQuiz == nil {
+		fmt.Println("quiz hasn't been started")
+		return nil
+	}
+	ongoingQuiz.CurrentQuestionIndex = event.QuestionIndex
+	socket.NotifyQuestionEnded(ongoingQuiz.Id, ongoingQuiz.CurrentQuestionIndex, event.Leaderboard)
+	return nil
+}
+
+func (m *QuizSession) onQuizEnded(event *models.QuizProgressedEvent) error {
+	ongoingQuiz := m.quizzesInProgress[event.QuizId]
+	if ongoingQuiz == nil {
+		fmt.Println("quiz haven't been started")
+		return nil
+	}
+	for userId := range ongoingQuiz.Participants {
+		if err := datastore.MarkUserAsNotInQuiz(context.Background(), event.QuizId, userId); err != nil {
+			fmt.Println("error marking quiz as not-in-quiz")
 		}
-	}()
-}
-
-func (m *QuizSession) startNewQuestion(ongoingQuiz *models.OngoingQuiz) error {
-	ctx := context.Background()
-	fmt.Println("start new question")
-	topUsers, err := datastore.GetLeaderboard(ctx, ongoingQuiz.Id, configs.LeaderboardSize)
-	if err != nil {
-		return err
 	}
-	quizProgressed := &models.QuizProgressedEvent{
-		QuizId:        ongoingQuiz.Id,
-		QuestionIndex: ongoingQuiz.CurrentQuestionIndex + 1,
-		Leaderboard:   topUsers,
-		EventType:     models.QuestionStarted,
-	}
-	return event_publisher.Publish(configs.QuizProgressedTopic, ongoingQuiz.Id.String(), quizProgressed)
-}
-
-func (m *QuizSession) endQuiz(quiz *models.Quiz) error {
-	ctx := context.Background()
-	fmt.Println("end quiz")
-	if err := datastore.MarkQuizAsFinished(ctx, quiz.Id); err != nil {
-		return err
-	}
-	topUsers, err := datastore.GetLeaderboard(ctx, quiz.Id, configs.LeaderboardSize)
-	if err != nil {
-		return err
-	}
-	if err = datastore.CleanUpUserScores(ctx, quiz.Id); err != nil {
-		return err
-	}
-	quizProgressed := &models.QuizProgressedEvent{
-		QuizId:      quiz.Id,
-		EventType:   models.QuizEnded,
-		Leaderboard: topUsers,
-	}
-	return event_publisher.Publish(configs.QuizProgressedTopic, quiz.Id.String(), quizProgressed)
+	mutex.Lock()
+	delete(m.quizzesInProgress, event.QuizId)
+	mutex.Unlock()
+	socket.NotifyQuizEnded(event.QuizId, event.Leaderboard)
+	return nil
 }

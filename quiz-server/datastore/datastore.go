@@ -4,9 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"sync"
 
-	"github.com/bsm/redislock"
 	"github.com/redis/go-redis/v9"
 	"github.com/samber/lo"
 	"quiz/configs"
@@ -17,51 +15,68 @@ var client = redis.NewClient(&redis.Options{
 	Addr: configs.RedisAddress,
 })
 
-var locker = redislock.New(client)
-
-var lockByQuizId = map[models.QuizId]*redislock.Lock{}
-
-var mutex sync.Mutex
-
 var ErrQuizInProgress = errors.New("quiz already in progress")
 
+var ErrUserInQuiz = errors.New("user already in quiz")
+
 func MarkQuizAsInProgress(ctx context.Context, quizId models.QuizId) error {
-	lockKey := fmt.Sprintf("quiz_in_progress:%d", quizId)
-	lock, err := locker.Obtain(ctx, lockKey, configs.QuizMaxDuration, nil)
-	if errors.Is(err, redislock.ErrNotObtained) {
-		return ErrQuizInProgress
-	} else if err != nil {
+	ok, err := client.SetNX(ctx, quizId.GetLockKey(), "locked", configs.QuizMaxDuration).Result()
+	if err != nil {
 		return err
 	}
-	mutex.Lock()
-	defer mutex.Unlock()
-	lockByQuizId[quizId] = lock
+	if !ok {
+		return ErrQuizInProgress
+	}
 	return nil
 }
 
-func MarkQuizAsFinished(ctx context.Context, id models.QuizId) error {
-	// handle race condition
-	mutex.Lock()
-	defer mutex.Unlock()
-
-	lock := lockByQuizId[id]
-	if lock == nil {
-		fmt.Println("quiz not locked")
+func MarkQuizAsFinished(ctx context.Context, quizId models.QuizId) error {
+	res, err := client.Del(ctx, quizId.GetLockKey()).Result()
+	if err != nil {
+		return err
+	}
+	// If the delete result is 0, the key didn't exist (lock might have expired or not set)
+	if res == 0 {
+		fmt.Println("lock does not exist or already released", quizId)
 		return nil
 	}
-	delete(lockByQuizId, id)
+	return nil
+}
 
-	err := lock.Release(ctx)
+func CheckQuizInProgress(ctx context.Context, quizId models.QuizId) error {
+	exists, err := client.Exists(ctx, quizId.GetLockKey()).Result()
 	if err != nil {
-		fmt.Println("failed to release quiz:", err)
+		return fmt.Errorf("get lock error: %w", err)
+	}
+	if exists > 0 {
+		return ErrQuizInProgress
 	}
 	return nil
 }
 
-func ReleaseAllLocks() {
-	for _, lock := range lockByQuizId {
-		lock.Release(context.Background())
+func MarkUserAsInQuiz(ctx context.Context, quizId models.QuizId, userId models.UserId) error {
+	key := fmt.Sprintf("user_in_quiz:%d:%d", quizId, userId)
+	ok, err := client.SetNX(ctx, key, "locked", configs.QuizMaxDuration).Result()
+	if err != nil {
+		return err
 	}
+	if !ok {
+		return ErrUserInQuiz
+	}
+	return nil
+}
+
+func MarkUserAsNotInQuiz(ctx context.Context, quizId models.QuizId, userId models.UserId) error {
+	res, err := client.Del(ctx, fmt.Sprintf("user_in_quiz:%d:%d", quizId, userId)).Result()
+	if err != nil {
+		return err
+	}
+	// If the delete result is 0, the key didn't exist (lock might have expired or not set)
+	if res == 0 {
+		fmt.Println("lock does not exist or already released", quizId)
+		return nil
+	}
+	return nil
 }
 
 func AddOrUpdateUserScore(ctx context.Context, quizId models.QuizId, userId models.UserId, dScore int) (int, error) {

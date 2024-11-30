@@ -14,13 +14,13 @@ func StartServer() *socketio.Server {
 }
 
 func NotifyQuestionEnded(quizId models.QuizId, currentQuestionIndex int, leaderboard []models.UserScore) {
-	server.Of("").In(socketio.Room(quizId.String())).Emit(string(configs.QuestionEnded), currentQuestionIndex, leaderboard)
+	server.Of("").In(socketio.Room(quizId.String())).Emit(string(configs.QuestionStarted), currentQuestionIndex, leaderboard)
 }
 
 func NotifyQuizEnded(quizId models.QuizId, leaderboard []models.UserScore) {
 	server.Of("").In(socketio.Room(quizId.String())).Emit(string(configs.QuizEnded), leaderboard)
 }
 
-func NotifyScoreUpdated(quizId models.QuizId, leaderboard []models.UserScore) {
-	server.Of("").In(socketio.Room(quizId.String())).Emit(string(configs.ScoreUpdated), leaderboard)
+func NotifyScoreUpdated(quizId models.QuizId, userId models.UserId, leaderboard []models.UserScore) {
+	server.Of("").In(socketio.Room(quizId.String())).Emit(string(configs.ScoreUpdated), userId, leaderboard)
 }

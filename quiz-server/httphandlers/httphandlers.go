@@ -2,14 +2,15 @@ package httphandlers
 
 import (
 	"net/http"
+	"quiz/core/data"
+	"quiz/workflow"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
-	"quiz/core/managers"
 	"quiz/core/models"
 )
 
-func StartHttpServer(quizSessionManager *managers.QuizSession) {
+func StartHttpServer() {
 	gin.SetMode(gin.ReleaseMode)
 
 	router := gin.Default()
@@ -23,7 +24,15 @@ func StartHttpServer(quizSessionManager *managers.QuizSession) {
 			})
 			return
 		}
-		if err = quizSessionManager.StartQuiz(c.Request.Context(), models.QuizId(quizId)); err != nil {
+
+		quiz := data.QuizData[models.QuizId(quizId)]
+		if quiz == nil {
+			c.JSON(http.StatusNotFound, gin.H{
+				"error": "quiz not found",
+			})
+		}
+
+		if err = workflow.StartQuizWorkflow(c.Request.Context(), quiz); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{
 				"error": err.Error(),
 			})

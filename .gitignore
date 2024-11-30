@@ -1,3 +1,6 @@
 /.idea
 /quiz-client/.idea
+/quiz-client/node_modules
 *.iml
+temporal.db
+quiz

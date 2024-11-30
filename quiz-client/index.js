@@ -15,12 +15,15 @@ const JoinQuiz = "join_quiz"
 const AnswerQuestion = "answer_question"
 
 const AnswerChecked = "answer_checked"
-const QuestionEnded = "question_ended"
+const QuestionStarted = "question_started"
 const ScoreUpdated = "score_updated"
 const QuizEnded = "quiz_ended"
 const QuizData = "quiz_data"
+const Error = "quiz_error"
 
-const serverPort = prompt("Enter server port: ")
+const JoinQuizErrorType = "JoinQuizError"
+
+const serverPort = 8080
 const userId = prompt("Enter user ID: ")
 
 const socket = io(`http://localhost:${serverPort}`);
@@ -47,8 +50,22 @@ socket.on(QuizData, (message) => {
     quizData = message
 });
 
-socket.on(QuestionEnded, (currentQuestionIndex, leaderboard) => {
-    console.log(`The time for question ${currentQuestionIndex} is up!`)
+socket.on(Error, (message) => {
+    console.error(message)
+    if (message.startsWith(JoinQuizErrorType)) {
+        const quizId = prompt("Enter quiz ID: ")
+        if (quizId === 'quit') {
+            process.exit(0)
+        }
+        socket.emit(JoinQuiz, userId, quizId)
+    }
+});
+
+socket.on(QuestionStarted, (currentQuestionIndex, leaderboard) => {
+    if (currentQuestionIndex > 0) {
+        console.log(`The time for question ${currentQuestionIndex} is up!`)
+        console.log('')
+    }
     if (!quizData) {
         console.error("quiz data is empty")
         return
@@ -64,8 +81,8 @@ socket.on(QuestionEnded, (currentQuestionIndex, leaderboard) => {
     }))
 })
 
-socket.on(ScoreUpdated, (leaderboard) => {
-    console.log(`Someone answered correctly!`)
+socket.on(ScoreUpdated, (answeredUserId, leaderboard) => {
+    console.log(`User ${answeredUserId} answered correctly!`)
     printLeaderboard(leaderboard)
 })
 

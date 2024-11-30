@@ -37,6 +37,7 @@ type QuizProgressedEvent struct {
 
 type ScoreUpdatedEvent struct {
 	QuizId      QuizId      `json:"quiz_id"`
+	UserId      UserId      `json:"user_id"`
 	Leaderboard []UserScore `json:"leaderboard"`
 }
 
@@ -66,8 +67,8 @@ type QuizId int
 type EventType int
 
 const (
-	QuestionStarted EventType = iota + 1
-	ScoreUpdated
+	QuizStarted EventType = iota + 1
+	QuestionStarted
 	QuizEnded
 )
 
@@ -94,6 +95,10 @@ func (q QuizId) String() string {
 
 func (q QuizId) GetLeaderboardKey() string {
 	return fmt.Sprintf("quiz:%d", q)
+}
+
+func (q QuizId) GetLockKey() string {
+	return fmt.Sprintf("quiz_in_progress:%d", q)
 }
 
 func UserIdFromStr(userId string) UserId {

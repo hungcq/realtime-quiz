@@ -80,21 +80,21 @@ var elementaryEnglishQuiz = &models.Quiz{
 4) None`,
 			CorrectAnswerIndex: 1,
 		},
-		//		{
-		//			Content: `Which sentence is grammatically correct?
-		//1) She don’t like apples.
-		//2) She doesn’t likes apples.
-		//3) She doesn’t like apples.
-		//4) She don’t likes apples.`,
-		//			CorrectAnswerIndex: 2,
-		//		},
-		//		{
-		//			Content: `What is the past tense of the verb "run"?
-		//1) Runs
-		//2) Running
-		//3) Ran
-		//4) Runned`,
-		//			CorrectAnswerIndex: 2,
-		//		},
+		{
+			Content: `Which sentence is grammatically correct?
+		1) She don’t like apples.
+		2) She doesn’t likes apples.
+		3) She doesn’t like apples.
+		4) She don’t likes apples.`,
+			CorrectAnswerIndex: 2,
+		},
+		{
+			Content: `What is the past tense of the verb "run"?
+		1) Runs
+		2) Running
+		3) Ran
+		4) Runned`,
+			CorrectAnswerIndex: 2,
+		},
 	},
 }
