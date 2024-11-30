@@ -6,21 +6,16 @@ import (
 	"quiz/core/models"
 )
 
-var server *socketio.Server
-
-func StartServer() *socketio.Server {
-	server = socketio.NewServer(&socketio.ServerConfig{})
-	return server
-}
+var Server *socketio.Server
 
 func NotifyQuestionEnded(quizId models.QuizId, currentQuestionIndex int, leaderboard []models.UserScore) {
-	server.Of("").In(socketio.Room(quizId.String())).Emit(string(configs.QuestionStarted), currentQuestionIndex, leaderboard)
+	Server.Of("").In(socketio.Room(quizId.String())).Emit(string(configs.QuestionStarted), currentQuestionIndex, leaderboard)
 }
 
 func NotifyQuizEnded(quizId models.QuizId, leaderboard []models.UserScore) {
-	server.Of("").In(socketio.Room(quizId.String())).Emit(string(configs.QuizEnded), leaderboard)
+	Server.Of("").In(socketio.Room(quizId.String())).Emit(string(configs.QuizEnded), leaderboard)
 }
 
 func NotifyScoreUpdated(quizId models.QuizId, userId models.UserId, leaderboard []models.UserScore) {
-	server.Of("").In(socketio.Room(quizId.String())).Emit(string(configs.ScoreUpdated), userId, leaderboard)
+	Server.Of("").In(socketio.Room(quizId.String())).Emit(string(configs.ScoreUpdated), userId, leaderboard)
 }

@@ -13,6 +13,7 @@ import (
 func main() {
 	c := workflow.StartWorkflowClient()
 	defer c.Close()
+	defer socket.Server.Close()
 
 	quizSessionManager := managers.NewQuizSessionManager()
 
@@ -20,7 +21,5 @@ func main() {
 	consumers.Consume(configs.ScoreUpdatedTopic, consumers.NewScoreUpdatedEventHandler(quizSessionManager))
 
 	httphandlers.StartHttpServer()
-
-	server := socket.StartServer()
-	websocket.ListenAndHandleEvent(quizSessionManager, server)
+	websocket.ListenAndHandleEvent(quizSessionManager)
 }

@@ -12,9 +12,12 @@ import (
 	"time"
 
 	socketio "github.com/karagenc/socket.io-go"
+	"github.com/quic-go/quic-go/http3"
+	"github.com/quic-go/webtransport-go"
 	"quiz/configs"
 	"quiz/core/managers"
 	"quiz/core/models"
+	"quiz/websocket/socket"
 )
 
 type webSocketHandler struct {
@@ -22,35 +25,47 @@ type webSocketHandler struct {
 	server             *socketio.Server
 }
 
-func ListenAndHandleEvent(manager *managers.QuizSession, server *socketio.Server) {
+func corsMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		origin := r.Header.Get("Origin")
+		if origin != "" {
+			w.Header().Set("Access-Control-Allow-Origin", "*")
+			w.Header().Set("Access-Control-Allow-Credentials", "true")
+		}
+
+		next.ServeHTTP(w, r)
+	})
+}
+
+const (
+	certFile = "cert.pem"
+	keyFile  = "key.pem"
+)
+
+func ListenAndHandleEvent(manager *managers.QuizSession) {
 	portStr := os.Getenv("PORT")
 	_, err := strconv.Atoi(portStr)
 	if err != nil {
 		log.Fatalln("invalid port", portStr)
 	}
-
-	handler := &webSocketHandler{
-		quizSessionManager: manager,
-		server:             server,
+	_, errCertFile := os.Stat(certFile)
+	_, errKeyFile := os.Stat(keyFile)
+	var wtServer *webtransport.Server
+	config := socketio.ServerConfig{}
+	useTLS := !os.IsNotExist(errCertFile) && !os.IsNotExist(errKeyFile)
+	if !useTLS {
+		panic("TLS not used")
 	}
-	server.Of("/").OnConnection(func(socket socketio.ServerSocket) {
-		fmt.Println("on connect:", socket.ID())
-		socket.OnEvent(string(configs.AnswerQuestion), handler.onQuestionAnswered(socket))
-		socket.OnEvent(string(configs.JoinQuiz), handler.onJoinQuiz(socket))
-
-		socket.OnDisconnect(func(reason socketio.Reason) {
-			fmt.Println("on disconnect:", reason)
-		})
-	})
-	if err := server.Run(); err != nil {
-		log.Fatalln(err)
+	// If TLS is enabled, use WebTransport.
+	wtServer = &webtransport.Server{
+		H3: http3.Server{Addr: "0.0.0.0:" + portStr},
 	}
-
+	config.EIO.WebTransportServer = wtServer
+	socket.Server = socketio.NewServer(&config)
 	fs := http.FileServer(http.Dir("public"))
 	router := http.NewServeMux()
-	router.Handle("/socket.io/", server)
+	router.Handle("/socket.io/", corsMiddleware(socket.Server))
 	router.Handle("/", fs)
-
 	httpServer := &http.Server{
 		Addr:    "0.0.0.0:" + portStr,
 		Handler: router,
@@ -62,13 +77,32 @@ func ListenAndHandleEvent(manager *managers.QuizSession, server *socketio.Server
 		// HTTPWriteTimeout returns io.PollTimeout + 10 seconds (extra 10 seconds to write the response).
 		// You should either set this timeout to 0 (infinite) or some value greater than the io.PollTimeout.
 		// Otherwise poll requests may fail.
-		WriteTimeout: server.HTTPWriteTimeout(),
+		WriteTimeout: socket.Server.HTTPWriteTimeout(),
+	}
+	wtServer.H3.Handler = socket.Server
+	go wtServer.ListenAndServeTLS(certFile, keyFile)
+	err = httpServer.ListenAndServeTLS(certFile, keyFile)
+	if err != nil && !errors.Is(err, http.ErrServerClosed) {
+		log.Fatalln(err)
+	}
+
+	handler := &webSocketHandler{
+		quizSessionManager: manager,
+	}
+	socket.Server.Of("/").OnConnection(func(socket socketio.ServerSocket) {
+		fmt.Println("on connect:", socket.ID())
+		socket.OnEvent(string(configs.AnswerQuestion), handler.onQuestionAnswered(socket))
+		socket.OnEvent(string(configs.JoinQuiz), handler.onJoinQuiz(socket))
+
+		socket.OnDisconnect(func(reason socketio.Reason) {
+			fmt.Println("on disconnect:", reason)
+		})
+	})
+	if err := socket.Server.Run(); err != nil {
+		log.Fatalln(err)
 	}
 
 	fmt.Println("Listening on:", portStr)
-	if err = httpServer.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-		log.Fatalln(err)
-	}
 }
 
 var JoinQuizError = errors.New("JoinQuizError")

@@ -2,12 +2,12 @@ package httphandlers
 
 import (
 	"net/http"
-	"quiz/core/data"
-	"quiz/workflow"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
+	"quiz/core/data"
 	"quiz/core/models"
+	"quiz/workflow"
 )
 
 func StartHttpServer() {
