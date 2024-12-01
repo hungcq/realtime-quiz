@@ -1,4 +1,4 @@
-temporal server start-dev --db-filename temporal.db --env-file temporal.yaml
+temporal server start-dev --db-filename temporal.db --env-file temporal.yaml --ip 0.0.0.0
 
 docker run -d  -p 9092:9092 --name broker \
   -e KAFKA_NODE_ID=1 \

@@ -1,23 +1,14 @@
 services:
-  app1:
+  app:
     build: ./quiz-server
     deploy:
-      replicas: 1 # Run two instances of the app (scalable)
+      replicas: 3 # Run two instances of the app (scalable)
     environment:
 #      - APP_INSTANCE=${APP_INSTANCE:-default}
-      - PORT=8080
-    extra_hosts:
-      - "localhost:192.168.0.101"
-    networks:
-      - app-network  # Define a custom network to allow communication
-
-  app2:
-    build: ./quiz-server
-    deploy:
-      replicas: 1 # Run two instances of the app (scalable)
-    environment:
-#      - APP_INSTANCE=${APP_INSTANCE:-default}
-      - PORT=8080
+      - PORT=8081
+      - KAFKA_BROKERS=localhost:9092
+      - REDIS_ADDRESS=localhost:6379
+      - TEMPORAL_ADDRESS=localhost:7233
     extra_hosts:
       - "localhost:192.168.0.101"
     networks:
@@ -28,7 +19,7 @@ services:
     image: haproxy:latest
     container_name: haproxy
     ports:
-      - "8080:8080"  # Expose the load balancer on port 8080
+      - "8081:8081"  # Expose the load balancer on port 8080
       - "1918:1918"  # Expose the load balancer on port 8080
     volumes:
       - ./haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg
