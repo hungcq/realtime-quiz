@@ -5,13 +5,11 @@
 ## How to run
 1. Start kafka broker (port 9092)
 2. Start redis (port 6379)
-3. Build binary `go build ./`
-4. Start server binary `PORT=8080 ./quiz`
-5. Start quiz client
-```
-npm i
-node index.js
-```
-6. Connect the client with the server: specify port & user ID
-7. Start the quiz `curl localhost:1918/start/[quiz ID]`
-8. Enter the quiz ID in the client
+3. Start temporal (port 7233)
+4. Build server binary `cd quiz-server && go build -o ../ . && cd ..`
+5. Build temporal worker `cd quiz-server/workflow/worker && go build -o ../../../ . && cd ../../../`
+6. Start server binary `PORT=8081 ./quiz`
+7. Start temporal worker binary `./worker`
+8. Start the quiz client `cd quiz-client && npm i && npm start`
+9. Start the quiz `curl localhost:8081/start/[quiz ID]`
+10. Enter username and quiz ID in the client to join the quiz
