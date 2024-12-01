@@ -2,7 +2,7 @@ package models
 
 import (
 	"fmt"
-	"strconv"
+	"sync"
 
 	socketio "github.com/karagenc/socket.io-go"
 )
@@ -19,13 +19,14 @@ type Question struct {
 
 type OngoingQuiz struct {
 	Id                   QuizId
-	Participants         map[UserId]*UserSession
+	Participants         map[Username]*UserSession
 	CurrentQuestionIndex int
 }
 
 type UserSession struct {
 	Socket            socketio.ServerSocket
 	AnsweredQuestions map[int]bool
+	Mutex             sync.Mutex
 }
 
 type QuizProgressedEvent struct {
@@ -37,7 +38,7 @@ type QuizProgressedEvent struct {
 
 type ScoreUpdatedEvent struct {
 	QuizId      QuizId      `json:"quiz_id"`
-	UserId      UserId      `json:"user_id"`
+	Username    Username    `json:"username"`
 	Leaderboard []UserScore `json:"leaderboard"`
 }
 
@@ -48,8 +49,8 @@ type QuestionAnsweredPayload struct {
 }
 
 type UserScore struct {
-	UserId UserId
-	Score  Score
+	Username Username `json:"username"`
+	Score    Score    `json:"score"`
 }
 
 type AnswerQuestionResult struct {
@@ -58,7 +59,7 @@ type AnswerQuestionResult struct {
 	Leaderboard        []UserScore
 }
 
-type UserId int
+type Username string
 
 type Score int
 
@@ -85,8 +86,8 @@ func (q *Quiz) FilterAnswers() *Quiz {
 	return res
 }
 
-func (u UserId) String() string {
-	return fmt.Sprintf("%d", u)
+func (u Username) String() string {
+	return string(u)
 }
 
 func (q QuizId) String() string {
@@ -99,9 +100,4 @@ func (q QuizId) GetLeaderboardKey() string {
 
 func (q QuizId) GetLockKey() string {
 	return fmt.Sprintf("quiz_in_progress:%d", q)
-}
-
-func UserIdFromStr(userId string) UserId {
-	val, _ := strconv.Atoi(userId)
-	return UserId(val)
 }

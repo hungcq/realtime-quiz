@@ -23,15 +23,15 @@ const Error = "quiz_error"
 
 const JoinQuizErrorType = "JoinQuizError"
 
-const serverPort = 8080
-const userId = prompt("Enter user ID: ")
+const serverPort = 8081
+const username = prompt("Enter username: ")
 
 const socket = io(`http://localhost:${serverPort}`);
 
 socket.on('connect', () => {
     console.log(`Connected to server with socket ID: ${socket.id}`);
     const quizId = prompt("Enter quiz ID: ")
-    socket.emit(JoinQuiz, userId, quizId)
+    socket.emit(JoinQuiz, username, Number(quizId))
 });
 
 // Handle disconnection
@@ -57,7 +57,7 @@ socket.on(Error, (message) => {
         if (quizId === 'quit') {
             process.exit(0)
         }
-        socket.emit(JoinQuiz, userId, quizId)
+        socket.emit(JoinQuiz, username, Number(quizId))
     }
 });
 
@@ -81,8 +81,8 @@ socket.on(QuestionStarted, (currentQuestionIndex, leaderboard) => {
     }))
 })
 
-socket.on(ScoreUpdated, (answeredUserId, leaderboard) => {
-    console.log(`User ${answeredUserId} answered correctly!`)
+socket.on(ScoreUpdated, (answeredUsername, leaderboard) => {
+    console.log(`User ${answeredUsername} answered correctly!`)
     printLeaderboard(leaderboard)
 })
 
@@ -96,5 +96,5 @@ socket.on(QuizEnded, (leaderboard) => {
     console.log('The quiz has ended.')
     printLeaderboard(leaderboard)
     const quizId = prompt("Enter quiz ID: ")
-    socket.emit(JoinQuiz, userId, quizId)
+    socket.emit(JoinQuiz, username, Number(quizId))
 })

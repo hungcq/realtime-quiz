@@ -13,8 +13,10 @@ import (
 
 	socketio "github.com/karagenc/socket.io-go"
 	"quiz/configs"
+	"quiz/core/data"
 	"quiz/core/managers"
 	"quiz/core/models"
+	"quiz/workflow"
 )
 
 type webSocketHandler struct {
@@ -62,6 +64,8 @@ func ListenAndHandleEvent(manager *managers.QuizSession, server *socketio.Server
 	router := http.NewServeMux()
 	router.Handle("/socket.io/", corsMiddleware(server))
 	router.Handle("/", fs)
+	// Define a simple GET route
+	router.HandleFunc("/start/", startQuiz)
 
 	httpServer := &http.Server{
 		Addr:    "0.0.0.0:" + portStr,
@@ -83,39 +87,62 @@ func ListenAndHandleEvent(manager *managers.QuizSession, server *socketio.Server
 	}
 }
 
+func startQuiz(w http.ResponseWriter, r *http.Request) {
+	// Extract `quiz_id` from the URL path
+	quizIdStr := r.URL.Path[len("/start/"):]
+	quizId, err := strconv.Atoi(quizIdStr)
+	if err != nil {
+		http.Error(w, jsonError(err.Error()), http.StatusBadRequest)
+		return
+	}
+
+	// Fetch quiz data
+	quiz := data.QuizData[models.QuizId(quizId)]
+	if quiz == nil {
+		http.Error(w, jsonError("quiz not found"), http.StatusNotFound)
+		return
+	}
+
+	// Start the quiz workflow
+	if err = workflow.StartQuizWorkflow(r.Context(), quiz); err != nil {
+		http.Error(w, jsonError(err.Error()), http.StatusInternalServerError)
+		return
+	}
+
+	// Send success response
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]string{
+		"message": "start quiz successfully",
+	})
+}
+
+// jsonError creates a JSON error response string
+func jsonError(message string) string {
+	response := map[string]string{"error": message}
+	jsonBytes, _ := json.Marshal(response) // Ignoring errors here for simplicity
+	return string(jsonBytes)
+}
+
 var JoinQuizError = errors.New("JoinQuizError")
 
-func (h *webSocketHandler) onJoinQuiz(s socketio.ServerSocket) func(userIdStr, quizIdStr string) {
-	return func(userIdStr, quizIdStr string) {
-		if userIdStr == "" {
+func (h *webSocketHandler) onJoinQuiz(s socketio.ServerSocket) func(username string, quizId int) {
+	return func(username string, quizId int) {
+		if username == "" {
 			s.Emit(string(configs.Error), fmt.Sprintf("%s: user id is empty", JoinQuizError))
 			return
 		}
-		userId, err := strconv.Atoi(userIdStr)
-		if err != nil {
-			s.Emit(string(configs.Error), fmt.Sprintf("%s: invalid user id", JoinQuizError))
-			return
-		}
 
-		if quizIdStr == "" {
-			s.Emit(string(configs.Error), fmt.Sprintf("%s: quiz id is empty", JoinQuizError))
-			return
-		}
-		quizId, err := strconv.Atoi(quizIdStr)
-		if err != nil {
-			s.Emit(string(configs.Error), fmt.Sprintf("%s: invalid quiz id", JoinQuizError))
-			return
-		}
-
-		quiz, err := h.quizSessionManager.JoinQuiz(context.Background(), models.QuizId(quizId), models.UserId(userId), s)
+		quiz, err := h.quizSessionManager.JoinQuiz(context.Background(), models.QuizId(quizId), models.Username(username), s)
 		if err != nil {
 			s.Emit(string(configs.Error), fmt.Sprintf("%s: %s", JoinQuizError, err))
 			fmt.Println(fmt.Sprintf("join quiz err: %s", err))
 			return
 		}
 		s.Emit(string(configs.QuizData), quiz)
-		fmt.Println("join quiz successfully. userid:", userIdStr, "quizid:", quizIdStr)
-		h.server.SocketsJoin(socketio.Room(quizIdStr))
+		fmt.Println("join quiz successfully. username:", username, "quizid:", quizId)
+		h.server.SocketsJoin(socketio.Room(models.QuizId(quizId).String()))
+
 		return
 	}
 }

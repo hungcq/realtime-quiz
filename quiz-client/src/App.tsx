@@ -1,7 +1,7 @@
-import React, {useEffect, useMemo, useState} from 'react';
+import React, {useEffect, useState} from 'react';
 import './App.css';
-import {Alert, Button, Card, Col, Form, FormProps, Input, Layout, Row} from "antd";
-import {Footer, Header} from "antd/es/layout/layout";
+import {Button, Card, Col, Form, FormProps, Input, InputNumber, Layout, message, Progress, Rate, Row} from "antd";
+import {Content, Footer, Header} from "antd/es/layout/layout";
 import {socket} from "./socket";
 
 const defaultQuestionTime = 10 // seconds
@@ -16,165 +16,216 @@ const QuizData = "quiz_data"
 const Error = "quiz_error"
 
 type FieldType = {
-    userId?: string;
+    username?: string;
     quizId?: string;
 };
 
-
-type Quiz = {}
+type AnswerFieldType = {
+    answer?: string
+}
 
 function App() {
-    const [isConnected, setIsConnected] = useState(socket.connected);
     let [quizData, setQuizData] = useState<any>()
-    let [userId, setUserId] = useState(0)
-    let [quizId, setQuizId] = useState(0)
-    let [error, setError] = useState("")
-    let leaderboard = useState()
+    let [currentQuestionIndex, setCurrentQuestionIndex] = useState(-1)
+    let [leaderboard, setLeaderboard] = useState<any[]>()
+    let [timeLeft, setTimeLeft] = useState(defaultQuestionTime)
 
     useEffect(() => {
         function onConnect() {
             console.log(`Connected to server with socket ID: ${socket.id}`);
-            setIsConnected(true);
-            socket.emit('join_quiz', 'abc')
         }
 
         function onDisconnect() {
             console.log('Disconnected from server');
-            setIsConnected(false);
         }
 
-        // Listen for the 'welcome' event
-        socket.on('connect', onConnect);
-
-        // Handle disconnection
-        socket.on('disconnect', onDisconnect);
-
-        // Handle connection errors
-        socket.on('connect_error', (error) => {
+        const connectionError = (error: any) => {
             console.error('Connection error:', error);
-        });
+        }
 
-        socket.on(QuizData, (message) => {
-            console.log('The quiz is starting...');
-            quizData = message
-        });
+        const onQuizStarted = (quizData: any) => {
+            setQuizData(quizData)
+        }
 
-        socket.on(Error, (message) => {
-            console.log(message)
-            setError(message)
-        });
+        const onQuizError = (err: any) => {
+            message.error(err)
+        }
 
-        socket.on(QuestionStarted, (currentQuestionIndex, leaderboard) => {
+        const onQuestionStarted = (currentQuestionIndex: any, leaderboard: any) => {
             if (currentQuestionIndex > 0) {
-                console.log(`The time for question ${currentQuestionIndex} is up!`)
-                console.log('')
+                message.warning(`The time for question ${currentQuestionIndex} is up!`)
             }
-            if (!quizData) {
-                console.error("quiz data is empty")
-                return
-            }
-            const qc = quizData.questions[currentQuestionIndex].content
-            console.log(qc)
-            const answerStr = prompt("Your answer: ")
-            const answer = Number(answerStr)
-            socket.emit(AnswerQuestion, JSON.stringify({
-                quiz_id: quizData.id,
-                question_index: Number(currentQuestionIndex),
-                answer_index: answer - 1
-            }))
-        })
+            setCurrentQuestionIndex(+currentQuestionIndex)
+            setLeaderboard(leaderboard)
+            setTimeLeft(defaultQuestionTime)
+            const id = setInterval(() => {
+                setTimeLeft(prevState => {
+                    return prevState - 1
+                })
+            }, 1000)
+            setTimeout(() => {
+                clearInterval(id);
+            }, defaultQuestionTime * 1000);
+        }
 
-        socket.on(ScoreUpdated, (answeredUserId, leaderboard) => {
-            console.log(`User ${answeredUserId} answered correctly!`)
-            // printLeaderboard(leaderboard)
-        })
+        const onScoreUpdated = (answeredUsername: any, leaderboard: any) => {
+            message.success(`User ${answeredUsername} answered correctly!`)
+            setLeaderboard(leaderboard)
+        }
 
-        socket.on(AnswerChecked, (correctAnswerIndex, newScore) => {
-            console.log('Correct answer is:', correctAnswerIndex + 1);
-            console.log('Your current score is:', newScore)
-            console.log()
-        })
+        const onAnswerChecked = (correctAnswerIndex: any, newScore: any) => {
+            message.info(`Correct answer is: ${correctAnswerIndex + 1}. Your current score is: ${newScore}`,);
+        }
 
-        socket.on(QuizEnded, (leaderboard) => {
-            console.log('The quiz has ended.')
-            // printLeaderboard(leaderboard)
-            const quizId = prompt("Enter quiz ID: ")
-            socket.emit(JoinQuiz, userId, quizId)
-        })
+        const onQuizEnded = (leaderboard: any) => {
+            message.info('The quiz has ended.')
+            setTimeLeft(0)
+            setTimeout(() => {
+                setLeaderboard([])
+                setQuizData(null)
+                setCurrentQuestionIndex(-1)
+            }, 3000)
+        }
+
+        socket.on('connect', onConnect);
+        socket.on('disconnect', onDisconnect);
+        socket.on('connect_error', connectionError);
+        socket.on(QuizData, onQuizStarted);
+        socket.on(Error, onQuizError);
+        socket.on(QuestionStarted, onQuestionStarted)
+        socket.on(ScoreUpdated, onScoreUpdated)
+        socket.on(AnswerChecked, onAnswerChecked)
+        socket.on(QuizEnded, onQuizEnded)
+
         // Cleanup on component unmount
         return () => {
             socket.off('connect', onConnect);
             socket.off('disconnect', onDisconnect);
+            socket.off('connect_error', connectionError);
+            socket.off(QuizData, onQuizStarted);
+            socket.off(Error, onQuizError);
+            socket.off(QuestionStarted, onQuestionStarted)
+            socket.off(ScoreUpdated, onScoreUpdated)
+            socket.off(AnswerChecked, onAnswerChecked)
+            socket.off(QuizEnded, onQuizEnded)
         };
     }, []);
 
     const onFinish: FormProps<FieldType>['onFinish'] = (values) => {
-        setUserId(+values.userId!)
-        setQuizId(+values.quizId!)
-        socket.emit('join_quiz', values.userId, values.quizId);
+        socket.emit(JoinQuiz, values.username, values.quizId);
+    }
+
+    const onSubmitAnswer: FormProps<AnswerFieldType>['onFinish'] = (values) => {
+        socket.emit(AnswerQuestion, JSON.stringify({
+            quiz_id: quizData.id,
+            question_index: Number(currentQuestionIndex),
+            answer_index: Number(values.answer) - 1,
+        }))
     }
 
     return (
-        <Layout>
-            <Header/>
-            {error && <Alert message={error} type="error" />}
-            <Row>
-                <Col span={4}></Col>
-                {quizData ?
-                    <>
-                        <Col span={8}>
-                            <Card title="Question" extra={`Time left: ${1}s`} style={{width: '80%'}}>
-                                <p>Card content</p>
-                                <p>Card content</p>
-                                <p>Card content</p>
-                            </Card>
-                        </Col>
-                        <Col span={8}>
-                            <Card title="Leaderboard" style={{width: '80%'}}>
-                                <p>Card content</p>
-                                <p>Card content</p>
-                                <p>Card content</p>
-                            </Card>
-                        </Col>
-                    </>
-                    :
-                    <Col span={16}>
-                        <Form
-                            name="basic"
-                            labelCol={{span: 6}}
-                            wrapperCol={{span: 10}}
-                            style={{maxWidth: '100%'}}
-                            initialValues={{remember: true}}
-                            onFinish={onFinish}
-                            autoComplete="off"
-                        >
-                            <Form.Item<FieldType>
-                                label="User ID"
-                                name="userId"
-                                rules={[{required: true, message: 'Please input your user ID!'}]}
-                            >
-                                <Input/>
-                            </Form.Item>
+        <Layout style={{
+            height: '100vh'
+        }}>
+            <Header style={{
+                textAlign: 'center',
+                color: '#fff',
+            }}>
+                <h1>HungCQ & ThuyDB's Real-Time Quiz</h1>
+            </Header>
+            <Content style={{flex: 1, overflow: "auto"}}>
+                <Row style={{marginTop: '3%'}}>
+                    <Col span={4}></Col>
+                    {quizData ?
+                        <>
+                            <Col span={8}>
+                                <Card
+                                    title={currentQuestionIndex >= 0 ? `Question ${currentQuestionIndex + 1}` : 'Loading question...'}
+                                    style={{width: '100%', whiteSpace: "pre-wrap"}}>
+                                    {currentQuestionIndex >= 0 &&
+                                        <>
+                                            <Progress status='normal' percent={timeLeft * 10}
+                                                      format={(percent) => `${(percent || 0) / 10}s`}/>
+                                            <p>{quizData.questions[currentQuestionIndex].content}</p>
+                                            <Form
+                                                name="basic"
+                                                initialValues={{remember: true}}
+                                                onFinish={onSubmitAnswer}
+                                                autoComplete="off"
+                                                layout={"vertical"}
+                                            >
 
-                            <Form.Item<FieldType>
-                                label="Quiz ID"
-                                name="quizId"
-                                rules={[{required: true, message: 'Please input quiz ID!'}]}
-                            >
-                                <Input/>
-                            </Form.Item>
+                                                <Form.Item<AnswerFieldType>
+                                                    label="Your answer"
+                                                    name="answer"
+                                                    rules={[{required: true, message: 'Please input answer!'}]}
+                                                >
+                                                    <InputNumber max={4} min={1}/>
+                                                </Form.Item>
 
-                            <Form.Item label={null}>
-                                <Button type="primary" htmlType="submit">
-                                    Submit
-                                </Button>
-                            </Form.Item>
-                        </Form>
-                    </Col>
-                }
-                <Col span={4}></Col>
-            </Row>
-            <Footer/>
+                                                <Form.Item>
+                                                    <Button type="primary" htmlType="submit">
+                                                        Submit
+                                                    </Button>
+                                                </Form.Item>
+                                            </Form>
+                                        </>
+                                    }
+                                </Card>
+                            </Col>
+                            <Col span={8}>
+                                <Card title="Leaderboard" style={{width: '100%'}}>
+                                    {leaderboard && leaderboard.map((item: any) =>
+                                        <h3>{`${item.username} `}<Rate count={item.score} value={item.score}/></h3>
+                                    )
+                                    }
+                                </Card>
+                            </Col>
+                        </>
+                        :
+                        <Col span={16}>
+                            <Form
+                                name="basic"
+                                labelCol={{span: 6}}
+                                wrapperCol={{span: 10}}
+                                style={{maxWidth: '100%', marginTop: '3%'}}
+                                initialValues={{remember: true}}
+                                onFinish={onFinish}
+                                autoComplete="off"
+                            >
+                                <Form.Item<FieldType>
+                                    label="Username"
+                                    name="username"
+                                    rules={[{required: true, message: 'Please input your user ID!'}]}
+                                >
+                                    <Input/>
+                                </Form.Item>
+
+                                <Form.Item<FieldType>
+                                    label="Quiz ID"
+                                    name="quizId"
+                                    rules={[{required: true, message: 'Please input quiz ID!'}]}
+                                >
+                                    <InputNumber style={{ width: '100%' }}/>
+                                </Form.Item>
+
+                                <Form.Item label={null}>
+                                    <Button type="primary" htmlType="submit">
+                                        Submit
+                                    </Button>
+                                </Form.Item>
+                            </Form>
+                        </Col>
+                    }
+                    <Col span={4}></Col>
+                </Row>
+            </Content>
+            <Footer style={{
+                textAlign: 'center',
+                color: 'grey'
+            }}>
+                <h3>Copyright © 2024 HungCQ & ThuyDB</h3>
+            </Footer>
         </Layout>
     );
 }

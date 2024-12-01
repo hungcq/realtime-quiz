@@ -9,7 +9,6 @@ COPY . .
 
 RUN go build -o quiz .
 
-EXPOSE 8080
-EXPOSE 1918
+EXPOSE 8081
 
 CMD ["./quiz"]

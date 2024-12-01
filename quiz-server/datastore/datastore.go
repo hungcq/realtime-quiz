@@ -54,8 +54,8 @@ func CheckQuizInProgress(ctx context.Context, quizId models.QuizId) error {
 	return nil
 }
 
-func MarkUserAsInQuiz(ctx context.Context, quizId models.QuizId, userId models.UserId) error {
-	key := fmt.Sprintf("user_in_quiz:%d:%d", quizId, userId)
+func MarkUserAsInQuiz(ctx context.Context, quizId models.QuizId, username models.Username) error {
+	key := fmt.Sprintf("user_in_quiz:%d:%s", quizId, username)
 	ok, err := client.SetNX(ctx, key, "locked", configs.QuizMaxDuration).Result()
 	if err != nil {
 		return err
@@ -66,8 +66,8 @@ func MarkUserAsInQuiz(ctx context.Context, quizId models.QuizId, userId models.U
 	return nil
 }
 
-func MarkUserAsNotInQuiz(ctx context.Context, quizId models.QuizId, userId models.UserId) error {
-	res, err := client.Del(ctx, fmt.Sprintf("user_in_quiz:%d:%d", quizId, userId)).Result()
+func MarkUserAsNotInQuiz(ctx context.Context, quizId models.QuizId, username models.Username) error {
+	res, err := client.Del(ctx, fmt.Sprintf("user_in_quiz:%d:%s", quizId, username)).Result()
 	if err != nil {
 		return err
 	}
@@ -79,8 +79,8 @@ func MarkUserAsNotInQuiz(ctx context.Context, quizId models.QuizId, userId model
 	return nil
 }
 
-func AddOrUpdateUserScore(ctx context.Context, quizId models.QuizId, userId models.UserId, dScore int) (int, error) {
-	newScore, err := client.ZIncrBy(ctx, quizId.GetLeaderboardKey(), float64(dScore), userId.String()).Result()
+func AddOrUpdateUserScore(ctx context.Context, quizId models.QuizId, username models.Username, dScore int) (int, error) {
+	newScore, err := client.ZIncrBy(ctx, quizId.GetLeaderboardKey(), float64(dScore), username.String()).Result()
 	return int(newScore), err
 }
 
@@ -92,8 +92,8 @@ func GetLeaderboard(ctx context.Context, quizId models.QuizId, count int) ([]mod
 	}
 	res := lo.Map(zres, func(item redis.Z, index int) models.UserScore {
 		return models.UserScore{
-			UserId: models.UserIdFromStr(item.Member.(string)),
-			Score:  models.Score(item.Score),
+			Username: models.Username(item.Member.(string)),
+			Score:    models.Score(item.Score),
 		}
 	})
 	res = lo.Filter(res, func(item models.UserScore, index int) bool {
@@ -111,13 +111,13 @@ func CleanUpUserScores(ctx context.Context, quizId models.QuizId) error {
 	return nil
 }
 
-func GetPlayerRank(ctx context.Context, quizId models.QuizId, userId models.UserId) (rank int64, score float64, err error) {
-	score, err = client.ZScore(ctx, quizId.GetLeaderboardKey(), userId.String()).Result()
+func GetPlayerRank(ctx context.Context, quizId models.QuizId, username models.Username) (rank int64, score float64, err error) {
+	score, err = client.ZScore(ctx, quizId.GetLeaderboardKey(), username.String()).Result()
 	if err != nil {
 		return 0, 0, err
 	}
 
-	rank, err = client.ZRevRank(ctx, quizId.GetLeaderboardKey(), userId.String()).Result()
+	rank, err = client.ZRevRank(ctx, quizId.GetLeaderboardKey(), username.String()).Result()
 	if err != nil {
 		return 0, 0, err
 	}

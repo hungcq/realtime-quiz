@@ -2,7 +2,7 @@ services:
   app:
     build: ./quiz-server
     deploy:
-      replicas: 3 # Run two instances of the app (scalable)
+      replicas: 3
     environment:
 #      - APP_INSTANCE=${APP_INSTANCE:-default}
       - PORT=8081
@@ -19,8 +19,7 @@ services:
     image: haproxy:latest
     container_name: haproxy
     ports:
-      - "8081:8081"  # Expose the load balancer on port 8080
-      - "1918:1918"  # Expose the load balancer on port 8080
+      - "8081:8081"
     volumes:
       - ./haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg
     networks:

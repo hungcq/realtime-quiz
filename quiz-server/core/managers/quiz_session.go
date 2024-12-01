@@ -83,7 +83,7 @@ func EndQuiz(ctx context.Context, quizId models.QuizId) error {
 	return event_publisher.Publish(configs.QuizProgressedTopic, quizId.String(), quizProgressed)
 }
 
-func (m *QuizSession) JoinQuiz(ctx context.Context, quizId models.QuizId, userId models.UserId, socket socketio.ServerSocket) (*models.Quiz, error) {
+func (m *QuizSession) JoinQuiz(ctx context.Context, quizId models.QuizId, username models.Username, socket socketio.ServerSocket) (*models.Quiz, error) {
 	quiz := data.QuizData[quizId]
 	if quiz == nil {
 		return nil, quizNotFoundError
@@ -95,7 +95,7 @@ func (m *QuizSession) JoinQuiz(ctx context.Context, quizId models.QuizId, userId
 		return nil, errors.New("quiz haven't been started")
 	}
 
-	if err = datastore.MarkUserAsInQuiz(ctx, quizId, userId); err != nil {
+	if err = datastore.MarkUserAsInQuiz(ctx, quizId, username); err != nil {
 		return nil, err
 	}
 
@@ -105,11 +105,11 @@ func (m *QuizSession) JoinQuiz(ctx context.Context, quizId models.QuizId, userId
 		ongoingQuiz = &models.OngoingQuiz{
 			Id:                   quiz.Id,
 			CurrentQuestionIndex: -1,
-			Participants:         map[models.UserId]*models.UserSession{},
+			Participants:         map[models.Username]*models.UserSession{},
 		}
 		m.quizzesInProgress[quizId] = ongoingQuiz
 	}
-	ongoingQuiz.Participants[userId] = &models.UserSession{
+	ongoingQuiz.Participants[username] = &models.UserSession{
 		Socket:            socket,
 		AnsweredQuestions: map[int]bool{},
 	}
@@ -126,13 +126,13 @@ func (m *QuizSession) AnswerQuestion(
 		return nil, errors.New("quiz haven't been started")
 	}
 
-	var userId models.UserId = -1
+	var username models.Username = ""
 	for k, v := range ongoingQuiz.Participants {
 		if v.Socket == s {
-			userId = k
+			username = k
 		}
 	}
-	if userId == -1 {
+	if username == "" {
 		return nil, errors.New("user hasn't connected")
 	}
 
@@ -144,13 +144,18 @@ func (m *QuizSession) AnswerQuestion(
 		return nil, fmt.Errorf("question is not in progress: %d, %d", quiz.CurrentQuestionIndex, questionIndex)
 	}
 
-	session := quiz.Participants[userId]
+	session := quiz.Participants[username]
 	if session == nil {
 		return nil, fmt.Errorf("user does not exist")
 	}
+
+	session.Mutex.Lock()
 	if session.AnsweredQuestions[questionIndex] {
+		session.Mutex.Unlock()
 		return nil, fmt.Errorf("question already answered")
 	}
+	session.AnsweredQuestions[questionIndex] = true
+	session.Mutex.Unlock()
 
 	question := data.QuizData[quiz.Id].Questions[questionIndex]
 	dScore := 0
@@ -158,7 +163,7 @@ func (m *QuizSession) AnswerQuestion(
 		dScore = 1
 	}
 	ctx := context.Background()
-	newScore, err := datastore.AddOrUpdateUserScore(ctx, quizId, userId, dScore)
+	newScore, err := datastore.AddOrUpdateUserScore(ctx, quizId, username, dScore)
 	if err != nil {
 		return nil, fmt.Errorf("error adding new quiz score: %w", err)
 	}
@@ -167,7 +172,7 @@ func (m *QuizSession) AnswerQuestion(
 		leaderboard, err = datastore.GetLeaderboard(ctx, quizId, configs.LeaderboardSize)
 		event := &models.ScoreUpdatedEvent{
 			QuizId:      quizId,
-			UserId:      userId,
+			Username:    username,
 			Leaderboard: leaderboard,
 		}
 		if err = event_publisher.Publish(configs.ScoreUpdatedTopic, quizId.String(), event); err != nil {
@@ -187,7 +192,7 @@ func (m *QuizSession) OnScoreUpdated(event *models.ScoreUpdatedEvent) error {
 		fmt.Println("quiz haven't been started")
 		return nil
 	}
-	socket.NotifyScoreUpdated(event.QuizId, event.UserId, event.Leaderboard)
+	socket.NotifyScoreUpdated(event.QuizId, event.Username, event.Leaderboard)
 	return nil
 }
 
@@ -213,7 +218,7 @@ func (m *QuizSession) onQuizStarted(event *models.QuizProgressedEvent) error {
 	}
 	ongoingQuiz = &models.OngoingQuiz{
 		Id:                   event.QuizId,
-		Participants:         map[models.UserId]*models.UserSession{},
+		Participants:         map[models.Username]*models.UserSession{},
 		CurrentQuestionIndex: -1, // for pending period
 	}
 	// handle race condition
@@ -240,8 +245,8 @@ func (m *QuizSession) onQuizEnded(event *models.QuizProgressedEvent) error {
 		fmt.Println("quiz haven't been started")
 		return nil
 	}
-	for userId := range ongoingQuiz.Participants {
-		if err := datastore.MarkUserAsNotInQuiz(context.Background(), event.QuizId, userId); err != nil {
+	for username := range ongoingQuiz.Participants {
+		if err := datastore.MarkUserAsNotInQuiz(context.Background(), event.QuizId, username); err != nil {
 			fmt.Println("error marking quiz as not-in-quiz")
 		}
 	}
