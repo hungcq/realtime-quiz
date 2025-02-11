@@ -1,0 +1,102 @@
+<mxfile host="app.diagrams.net" agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36" version="24.9.0">
+  <diagram name="Page-1" id="u6fQ9mB_v6zkvGOVlDIw">
+    <mxGraphModel grid="1" page="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" pageScale="1" pageWidth="1169" pageHeight="827" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="107rd65f4QoO9-xVrbsc-23" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;dashed=1;dashPattern=12 12;" vertex="1" parent="1">
+          <mxGeometry x="210" y="320" width="510" height="250" as="geometry" />
+        </mxCell>
+        <mxCell id="107rd65f4QoO9-xVrbsc-30" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="107rd65f4QoO9-xVrbsc-1" target="107rd65f4QoO9-xVrbsc-29">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="107rd65f4QoO9-xVrbsc-1" value="Quiz content manager" style="rounded=1;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="480" y="410" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="107rd65f4QoO9-xVrbsc-12" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;startArrow=classic;startFill=1;" edge="1" parent="1" source="107rd65f4QoO9-xVrbsc-2" target="107rd65f4QoO9-xVrbsc-3">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="107rd65f4QoO9-xVrbsc-31" value="get quiz data" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="107rd65f4QoO9-xVrbsc-2" target="107rd65f4QoO9-xVrbsc-1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="107rd65f4QoO9-xVrbsc-33" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="107rd65f4QoO9-xVrbsc-2" target="107rd65f4QoO9-xVrbsc-32">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="107rd65f4QoO9-xVrbsc-2" value="Quiz controller&lt;br&gt;(stateful)" style="rounded=1;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="800" y="410" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="107rd65f4QoO9-xVrbsc-3" value="Event broker" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=15;" vertex="1" parent="1">
+          <mxGeometry x="830" y="520" width="60" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="107rd65f4QoO9-xVrbsc-28" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="107rd65f4QoO9-xVrbsc-4" target="107rd65f4QoO9-xVrbsc-27">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="300" y="680" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="107rd65f4QoO9-xVrbsc-4" value="User manager" style="rounded=1;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="240" y="410" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="107rd65f4QoO9-xVrbsc-19" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="107rd65f4QoO9-xVrbsc-5" target="107rd65f4QoO9-xVrbsc-13">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="107rd65f4QoO9-xVrbsc-5" value="Quiz creator" style="shape=umlActor;verticalLabelPosition=top;verticalAlign=bottom;html=1;outlineConnect=0;labelPosition=center;align=center;" vertex="1" parent="1">
+          <mxGeometry x="470" y="130" width="30" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="107rd65f4QoO9-xVrbsc-20" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="107rd65f4QoO9-xVrbsc-6" target="107rd65f4QoO9-xVrbsc-13">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="107rd65f4QoO9-xVrbsc-6" value="Quiz participant" style="shape=umlActor;verticalLabelPosition=top;verticalAlign=bottom;html=1;outlineConnect=0;labelPosition=center;align=center;" vertex="1" parent="1">
+          <mxGeometry x="570" y="130" width="30" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="107rd65f4QoO9-xVrbsc-15" value="manage quiz (for quiz creator)" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="107rd65f4QoO9-xVrbsc-13" target="107rd65f4QoO9-xVrbsc-1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="107rd65f4QoO9-xVrbsc-16" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="107rd65f4QoO9-xVrbsc-13" target="107rd65f4QoO9-xVrbsc-4">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="107rd65f4QoO9-xVrbsc-18" value="authenticate" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" connectable="0" vertex="1" parent="107rd65f4QoO9-xVrbsc-16">
+          <mxGeometry x="0.5935" y="1" relative="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="107rd65f4QoO9-xVrbsc-21" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;startArrow=classic;startFill=1;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="107rd65f4QoO9-xVrbsc-13" target="107rd65f4QoO9-xVrbsc-25">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="107rd65f4QoO9-xVrbsc-22" value="1. submit answer (for participant)&lt;br&gt;2. notify result" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" connectable="0" vertex="1" parent="107rd65f4QoO9-xVrbsc-21">
+          <mxGeometry x="0.6" relative="1" as="geometry">
+            <mxPoint x="164" y="60" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="107rd65f4QoO9-xVrbsc-13" value="FE&lt;br&gt;(web, mobile apps...)" style="rounded=1;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="480" y="250" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="107rd65f4QoO9-xVrbsc-24" value="Stateless BE system: load balanced &amp;amp; scaled via deployment platform" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;" vertex="1" parent="1">
+          <mxGeometry x="365" y="520" width="135" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="107rd65f4QoO9-xVrbsc-26" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;startArrow=classic;startFill=1;" edge="1" parent="1" source="107rd65f4QoO9-xVrbsc-25" target="107rd65f4QoO9-xVrbsc-2">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="860" y="280" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="107rd65f4QoO9-xVrbsc-25" value="Layer 4 load balancer" style="rounded=1;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="720" y="250" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="107rd65f4QoO9-xVrbsc-27" value="User data" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=15;" vertex="1" parent="1">
+          <mxGeometry x="270" y="600" width="60" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="107rd65f4QoO9-xVrbsc-29" value="Quiz data" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=15;" vertex="1" parent="1">
+          <mxGeometry x="510" y="600" width="60" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="107rd65f4QoO9-xVrbsc-32" value="Quiz user score" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=15;" vertex="1" parent="1">
+          <mxGeometry x="960" y="520" width="70" height="80" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
