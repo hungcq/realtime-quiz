@@ -1,7 +1,7 @@
 import React, {useEffect, useState} from 'react';
 import './App.css';
 import {Button, Card, Col, Form, FormProps, Input, InputNumber, Layout, message, Progress, Rate, Row} from "antd";
-import {Content, Footer, Header} from "antd/es/layout/layout";
+const { Content, Footer, Header } = Layout;
 import {socket} from "./socket";
 
 const defaultQuestionTime = 10 // seconds
