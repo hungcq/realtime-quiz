@@ -80,12 +80,12 @@ Therefore, the load should also be equally distributed across the instances.*
 #### Answer quiz questions, update score & leaderboard in real-time
 *Due to the limitation of sequence diagrams, the concurrency of the system operations is not shown.
 But it should be noted that all operations that involve both quiz 1 & 2 instances are executed concurrently
-(for example, receiving event from the broker, sending updates to clients)
+(for example, receiving event from the broker, sending updates to clients)*
 
-Error handling: if a client session tries to submit an answer to timed out questions,
-the coordinate will reject the request even if the answer is 
+*Error handling: if a client session tries to submit an answer to timed out questions,
+the coordinate will reject the request even if the answer is correct*
 
-Consistency: when an answer is submitted and the score updated,
+*Consistency: when an answer is submitted and the score updated,
 the leaderboard is loaded once and passed to all instances and pushed to clients.
 Therefore, the info displayed on all clients is consistent.*
 
