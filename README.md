@@ -41,7 +41,7 @@ both technically in terms of load and organizationally in terms of system comple
 However, depending on the need of the business, a simple,
 monolithic system can be built and scaled to support up to millions of concurrent users.
 
-<img src="./documentation/quiz.jpg" width=600>
+<img src="./documentation/quiz.jpg" width=700>
 
 | **Component**                   | **Description**                                                                                                                               |
 |---------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------|
@@ -56,24 +56,26 @@ monolithic system can be built and scaled to support up to millions of concurren
 ## Data flow
 
 ### Quiz content management
-<img src="./documentation/quiz-content-management.png" width=500>
+<img src="./documentation/quiz-content-management.png" width=600>
 
 #### Join quiz
-<img src="./documentation/join-quiz.png" width=500>
+<img src="./documentation/join-quiz.png" width=600>
 
 ### Compete in a real-time quiz
 
 #### Joining quiz & load balancing n user sessions across m instances
 *Here I draw the flow for 2 FE session with 2 BE instances.
 The connection and load balancing process is the same for n sessions across m instances.*
-<img src="./documentation/compete-join-quiz.png" width=500>
+
+<img src="./documentation/compete-join-quiz.png" width=600>
 
 #### Start quiz
 *Here I choose instance 1 as the quiz coordinator. However, it should be noted that,
 as the start quiz requests are load balanced across the instances,
 each instance should have equal probability of being the coordinator.
 Therefore, the load should also be equally distributed across the instances.*
-<img src="./documentation/compete-start-quiz.png" width=350>
+
+<img src="./documentation/compete-start-quiz.png" width=400>
 
 #### Answer quiz questions, update score & leaderboard in real-time
 *Due to the limitation of sequence diagrams, the concurrency of the system operations is not shown.
@@ -86,10 +88,11 @@ the coordinate will reject the request even if the answer is
 Consistency: when an answer is submitted and the score updated,
 the leaderboard is loaded once and passed to all instances and pushed to clients.
 Therefore, the info displayed on all clients is consistent.*
-<img src="./documentation/compete-answer-question.png" width=700>
+
+<img src="./documentation/compete-answer-question.png" width=800>
 
 #### End quiz
-<img src="./documentation/compete-end-quiz.png" width=700>
+<img src="./documentation/compete-end-quiz.png" width=800>
 
 ## Technologies & tools
 Due to the limited time to complete this coding challenge, I choose the technologies that I’m familiar with,
@@ -184,6 +187,7 @@ Design decision & refactoring consideration should be evaluated continuously aft
   - The load balancer: clients specify the port of the instance directly to simulate load-balanced connections
 
 ### Architecture
+<img src="./documentation/quiz-impl.jpg" width=350>
 
 ### Code organization
 To improve maintainability, I organize the BE code following the hexagonal architecture. There are 3 main layers:
