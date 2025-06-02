@@ -1,8 +1,9 @@
 import React, {useEffect, useState} from 'react';
 import './App.css';
 import {Button, Card, Col, Form, FormProps, Input, InputNumber, Layout, message, Progress, Rate, Row} from "antd";
-const { Content, Footer, Header } = Layout;
 import {socket} from "./socket";
+
+const { Content, Footer, Header } = Layout;
 
 const defaultQuestionTime = 10 // seconds
 const JoinQuiz = "join_quiz"
@@ -131,7 +132,7 @@ function App() {
                 textAlign: 'center',
                 color: '#fff',
             }}>
-                <h1>HungCQ & ThuyDB's Real-Time Quiz</h1>
+                <h1>HungCQ's Real-Time Quiz</h1>
             </Header>
             <Content style={{flex: 1, overflow: "auto"}}>
                 <Row style={{marginTop: '3%'}}>
@@ -224,7 +225,7 @@ function App() {
                 textAlign: 'center',
                 color: 'grey'
             }}>
-                <h3>Copyright © 2024 HungCQ & ThuyDB</h3>
+                <h3>Copyright © 2024 HungCQ</h3>
             </Footer>
         </Layout>
     );
