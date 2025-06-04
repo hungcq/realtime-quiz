@@ -1,4 +1,4 @@
-FROM golang:1.23
+FROM golang:1.23-alpine
 
 WORKDIR .
 
@@ -7,7 +7,7 @@ RUN go mod download
 
 COPY . .
 
-RUN go build -o quiz .
+RUN CGO_ENABLED=0 GOOS=linux go build -o quiz .
 
 EXPOSE 8081
 

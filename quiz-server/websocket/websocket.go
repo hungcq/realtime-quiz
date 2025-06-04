@@ -11,12 +11,13 @@ import (
 	"strconv"
 	"time"
 
-	socketio "github.com/karagenc/socket.io-go"
 	"quiz/configs"
 	"quiz/core/data"
 	"quiz/core/managers"
 	"quiz/core/models"
 	"quiz/workflow"
+
+	socketio "github.com/karagenc/socket.io-go"
 )
 
 type webSocketHandler struct {
@@ -88,6 +89,17 @@ func ListenAndHandleEvent(manager *managers.QuizSession, server *socketio.Server
 }
 
 func startQuiz(w http.ResponseWriter, r *http.Request) {
+	// Add CORS headers
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+
+	// Handle preflight requests
+	if r.Method == "OPTIONS" {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
 	// Extract `quiz_id` from the URL path
 	quizIdStr := r.URL.Path[len("/start/"):]
 	quizId, err := strconv.Atoi(quizIdStr)

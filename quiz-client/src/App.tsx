@@ -1,6 +1,6 @@
 import React, {useEffect, useState} from 'react';
 import './App.css';
-import {Button, Card, Col, Form, FormProps, Input, InputNumber, Layout, message, Progress, Rate, Row} from "antd";
+import {Button, Card, Col, Form, FormProps, Input, InputNumber, Layout, message, Progress, Rate, Row, Modal, FloatButton} from "antd";
 import {socket} from "./socket";
 
 const { Content, Footer, Header } = Layout;
@@ -30,6 +30,8 @@ function App() {
     let [currentQuestionIndex, setCurrentQuestionIndex] = useState(-1)
     let [leaderboard, setLeaderboard] = useState<any[]>()
     let [timeLeft, setTimeLeft] = useState(defaultQuestionTime)
+    let [isCheatModalOpen, setIsCheatModalOpen] = useState(false)
+    let [cheatQuizId, setCheatQuizId] = useState<string>('')
 
     useEffect(() => {
         function onConnect() {
@@ -124,6 +126,21 @@ function App() {
         }))
     }
 
+    const handleCheat = async () => {
+        try {
+            const response = await fetch(`https://realtime-quiz-api.hungcq.xyz/start/${cheatQuizId}`);
+            if (response.ok) {
+                message.success('Quiz started successfully!');
+                setIsCheatModalOpen(false);
+                setCheatQuizId('');
+            } else {
+                message.error('Failed to start quiz');
+            }
+        } catch (error) {
+            message.error('Error starting quiz');
+        }
+    }
+
     return (
         <Layout style={{
             height: '100vh'
@@ -131,8 +148,25 @@ function App() {
             <Header style={{
                 textAlign: 'center',
                 color: '#fff',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                padding: '0 24px',
+                position: 'relative'
             }}>
-                <h1>HungCQ's Real-Time Quiz</h1>
+                <div style={{ width: '100px' }}></div> {/* Spacer for balance */}
+                <h1 style={{ margin: 0 }}>HungCQ's Real-Time Quiz</h1>
+                <Button 
+                    type="primary" 
+                    onClick={() => setIsCheatModalOpen(true)}
+                    style={{ 
+                        backgroundColor: '#ff4d4f',
+                        borderColor: '#ff4d4f',
+                        height: '40px'
+                    }}
+                >
+                    Start Quiz
+                </Button>
             </Header>
             <Content style={{flex: 1, overflow: "auto"}}>
                 <Row style={{marginTop: '3%'}}>
@@ -212,7 +246,7 @@ function App() {
 
                                 <Form.Item label={null}>
                                     <Button type="primary" htmlType="submit">
-                                        Submit
+                                        Join Quiz
                                     </Button>
                                 </Form.Item>
                             </Form>
@@ -227,6 +261,21 @@ function App() {
             }}>
                 <h3>Copyright © 2024 HungCQ</h3>
             </Footer>
+            <Modal
+                title="Start Quiz"
+                open={isCheatModalOpen}
+                onOk={handleCheat}
+                onCancel={() => {
+                    setIsCheatModalOpen(false);
+                    setCheatQuizId('');
+                }}
+            >
+                <Input
+                    placeholder="Enter Quiz ID"
+                    value={cheatQuizId}
+                    onChange={(e) => setCheatQuizId(e.target.value)}
+                />
+            </Modal>
         </Layout>
     );
 }

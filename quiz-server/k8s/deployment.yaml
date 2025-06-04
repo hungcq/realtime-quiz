@@ -1,0 +1,135 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: quiz-config
+data:
+  KAFKA_BROKERS: "kafka-kraft.default.svc.cluster.local:9092"
+  REDIS_HOST: "redis-master.default.svc.cluster.local:6379"
+  TEMPORAL_HOST: "host.docker.internal:7233"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: quiz-server
+  labels:
+    app: quiz-server
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: quiz-server
+  template:
+    metadata:
+      labels:
+        app: quiz-server
+    spec:
+      containers:
+      - name: quiz-server
+        image: hungcq/quiz-server:latest
+        ports:
+        - containerPort: 8081
+        env:
+        - name: PORT
+          value: "8081"
+        - name: KAFKA_BROKERS
+          valueFrom:
+            configMapKeyRef:
+              name: quiz-config
+              key: KAFKA_BROKERS
+        - name: REDIS_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: quiz-config
+              key: REDIS_HOST
+        - name: TEMPORAL_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: quiz-config
+              key: TEMPORAL_HOST
+        resources:
+          limits:
+            cpu: "100m"
+            memory: "100Mi"
+        readinessProbe:
+          httpGet:
+            path: /health  # You'll need to implement this endpoint
+            port: 8081
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8081
+          initialDelaySeconds: 15
+          periodSeconds: 20
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: quiz-worker
+  labels:
+    app: quiz-worker
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: quiz-worker
+  template:
+    metadata:
+      labels:
+        app: quiz-worker
+    spec:
+      containers:
+      - name: quiz-worker
+        image: hungcq/quiz-worker:latest
+        env:
+        - name: KAFKA_BROKERS
+          valueFrom:
+            configMapKeyRef:
+              name: quiz-config
+              key: KAFKA_BROKERS
+        - name: REDIS_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: quiz-config
+              key: REDIS_HOST
+        - name: TEMPORAL_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: quiz-config
+              key: TEMPORAL_HOST
+        resources:
+          limits:
+            cpu: "100m"
+            memory: "100Mi"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: quiz-server
+spec:
+  selector:
+    app: quiz-server
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 8081
+  type: ClusterIP 
+
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: realtime-quiz-ingress
+spec:
+  rules:
+    - host: realtime-quiz-api.hungcq.xyz
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: quiz-server
+                port:
+                  number: 80
