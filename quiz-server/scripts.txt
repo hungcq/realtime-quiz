@@ -1,5 +1,5 @@
 docker buildx build --platform linux/amd64 -t hungcq/quiz-server:latest --push .
-docker buildx build --platform linux/amd64 -t hungcq/quiz-worker:latest -f workflow/worker/Dockerfile .
+docker buildx build --platform linux/amd64 -t hungcq/quiz-worker:latest --push -f workflow/worker/Dockerfile .
 
 helm install redis bitnami/redis \
     --set architecture=standalone \
