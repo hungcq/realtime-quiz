@@ -1,2 +1,10 @@
 docker buildx build --platform linux/amd64 -t hungcq/quiz-server:latest --push .
 docker buildx build --platform linux/amd64 -t hungcq/quiz-worker:latest -f workflow/worker/Dockerfile .
+
+helm install redis bitnami/redis \
+    --set architecture=standalone \
+    --set auth.enabled=false \
+    --set master.resources.requests.memory=64Mi \
+    --set master.resources.requests.cpu=50m \
+    --set master.resources.limits.memory=128Mi \
+    --set master.resources.limits.cpu=100m
